@@ -1,0 +1,5 @@
+{
+  "markdown.preview.markdownItPlugins": true,
+  "markdown.preview.mermaid": true,
+  "markdown.it.mermaid.enable": true
+}

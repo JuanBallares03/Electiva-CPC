@@ -1,0 +1,145 @@
+graph TB
+    subgraph "CLIENTS"
+        direction TB
+        A1[Admin Platform Panel<br/>React + TypeScript]
+        A2[Company Admin Panel<br/>React + TypeScript]
+        A3[Supervisor Panel<br/>React + TypeScript]
+        A4[Driver Mobile App<br/>React Native + Expo]
+    end
+
+    subgraph "CDN / EDGE"
+        B1[Vercel Edge Network<br/>Static Assets + SSR]
+    end
+
+    subgraph "API GATEWAY LAYER"
+        direction TB
+        GW1[API Gateway<br/>Node.js 20 + Express + TypeScript]
+        GW2[Auth Service<br/>JWT + RBAC + Refresh Tokens]
+        GW3[Rate Limiter / Validation<br/>Zod Schemas]
+    end
+
+    subgraph "WEBSOCKET LAYER"
+        direction TB
+        WS1[Socket.io Server<br/>Node.js + Redis Adapter]
+        WS2[Tracking Namespace<br/>/tracking]
+        WS3[Chat Namespace<br/>/chat]
+        WS4[Notifications Namespace<br/>/notifications]
+    end
+
+    subgraph "CORE SERVICES"
+        direction TB
+        S1[Company Service<br/>CRUD + Subscription]
+        S2[Driver Service<br/>CRUD + Location + Status]
+        S3[Route Service<br/>CRUD + Optimization Trigger]
+        S4[Order/Stop Service<br/>CRUD + Bulk Import + Geofence]
+        S5[Tracking Service<br/>Real-time Location + History]
+        S6[Incident Service<br/>CRUD + Resolution]
+        S7[Communication Service<br/>Chat + Push Notifications]
+        S8[Report Service<br/>Analytics + Export]
+        S9[School Service<br/>Students + Recurrent Routes]
+    end
+
+    subgraph "VRP ENGINE (MICROSERVICE)"
+        direction TB
+        VRP1[VRP Engine<br/>Python 3.11 + FastAPI]
+        VRP2[OR-Tools CP-SAT Solver]
+        VRP3[Distance Matrix Cache<br/>Google Maps API]
+        VRP4[Route Optimizer<br/>VRP + Constraints]
+    end
+
+    subgraph "DATA LAYER"
+        direction TB
+        DB1[(Neo4j Aura<br/>Graph Database)]
+        DB2[(Redis Cluster<br/>Cache + Pub/Sub + Sessions)]
+        DB3[(MinIO / S3<br/>Object Storage)]
+    end
+
+    subgraph "EXTERNAL APIs"
+        direction TB
+        EXT1[Google Maps Platform<br/>Geocoding + Directions + Distance Matrix + Places]
+        EXT2[Expo Push / FCM<br/>Push Notifications]
+        EXT3[Email Service<br/>Transactional Emails]
+    end
+
+    %% Client connections
+    A1 -->|HTTPS/WSS| B1
+    A2 -->|HTTPS/WSS| B1
+    A3 -->|HTTPS/WSS| B1
+    A4 -->|HTTPS/WSS| B1
+
+    B1 -->|REST + WebSocket| GW1
+
+    %% Gateway internal
+    GW1 --> GW2
+    GW1 --> GW3
+    GW1 --> WS1
+
+    %% WebSocket internal
+    WS1 --> WS2
+    WS1 --> WS3
+    WS1 --> WS4
+
+    %% Gateway to Services
+    GW1 --> S1
+    GW1 --> S2
+    GW1 --> S3
+    GW1 --> S4
+    GW1 --> S5
+    GW1 --> S6
+    GW1 --> S7
+    GW1 --> S8
+    GW1 --> S9
+
+    WS2 --> S5
+    WS3 --> S7
+    WS4 --> S7
+
+    %% Services to VRP
+    S3 -->|HTTP /optimize| VRP1
+    VRP1 --> VRP2
+    VRP1 --> VRP3
+    VRP1 --> VRP4
+    VRP3 --> EXT1
+
+    %% Services to Data Layer
+    S1 --> DB1
+    S2 --> DB1
+    S2 --> DB2
+    S3 --> DB1
+    S4 --> DB1
+    S5 --> DB1
+    S5 --> DB2
+    S6 --> DB1
+    S7 --> DB1
+    S7 --> DB2
+    S8 --> DB1
+    S9 --> DB1
+
+    S4 --> DB3
+    S7 --> DB3
+
+    %% Services to External
+    S1 --> EXT3
+    S2 --> EXT2
+    S3 --> EXT1
+    S4 --> EXT1
+    S5 --> EXT1
+    S7 --> EXT2
+    S9 --> EXT1
+
+    %% Styling
+    classDef client fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef gateway fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef ws fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef service fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef vrp fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef data fill:#f1f8e9,stroke:#689f38,stroke-width:2px
+    classDef external fill:#eceff1,stroke:#546e7a,stroke-width:2px
+
+    class A1,A2,A3,A4 client
+    class B1,GW1,GW2,GW3 gateway
+    class WS1,WS2,WS3,WS4 ws
+    class S1,S2,S3,S4,S5,S6,S7,S8,S9 service
+    class VRP1,VRP2,VRP3,VRP4 vrp
+    class DB1,DB2,DB3 data
+    class EXT1,EXT2,EXT3 external

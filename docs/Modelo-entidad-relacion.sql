@@ -16,6 +16,11 @@ CREATE TYPE "estado_conductor" AS ENUM (
   'no_disponible'
 );
 
+CREATE TYPE "modalidad_servicio" AS ENUM (
+  'suscripcion',
+  'pago_por_uso'
+);
+
 CREATE TYPE "estado_suscripcion" AS ENUM (
   'activa',
   'inactiva',
@@ -96,7 +101,14 @@ CREATE TYPE "severidad_alerta" AS ENUM (
 CREATE TYPE "concepto_pago" AS ENUM (
   'suscripcion',
   'paquete_creditos',
-  'modulo'
+  'modulo',
+  'consumo'
+);
+
+CREATE TYPE "estado_cobro_consumo" AS ENUM (
+  'en_curso',
+  'cobrado',
+  'rechazado'
 );
 
 CREATE TYPE "estado_pago" AS ENUM (
@@ -115,6 +127,8 @@ CREATE TABLE "empresas" (
   "estado" estado_empresa NOT NULL DEFAULT 'activa',
   "tiene_flota_propia" boolean NOT NULL,
   "configuracion" jsonb,
+  "referencia_tarjeta" varchar(100),
+  "tope_gasto_mensual" decimal(12,2),
   "fecha_registro" date NOT NULL DEFAULT (current_date)
 );
 
@@ -145,6 +159,7 @@ CREATE TABLE "conductores" (
 CREATE TABLE "planes" (
   "id" uuid PRIMARY KEY,
   "nombre" varchar(50) UNIQUE NOT NULL,
+  "modalidad" modalidad_servicio NOT NULL DEFAULT 'suscripcion',
   "max_conductores" int,
   "max_sedes" int,
   "tipo_soporte" varchar(50),
@@ -152,6 +167,10 @@ CREATE TABLE "planes" (
   "creditos_mensuales" int,
   "precio_mensual" decimal(12,2),
   "precio_anual" decimal(12,2),
+  "conductores_incluidos" int,
+  "precio_optimizacion" decimal(12,2),
+  "precio_conductor_adicional" decimal(12,2),
+  "monto_cobro_anticipado" decimal(12,2),
   "activo" boolean NOT NULL DEFAULT true
 );
 
@@ -277,6 +296,7 @@ CREATE TABLE "optimizaciones_ruta" (
   "duracion_estimada_s" int,
   "tiempo_procesamiento_ms" int,
   "exitosa" boolean NOT NULL,
+  "cobro_consumo_id" uuid,
   "fecha" date NOT NULL DEFAULT (current_date)
 );
 
@@ -377,6 +397,18 @@ CREATE TABLE "pagos" (
   "fecha_aprobacion" timestamp
 );
 
+CREATE TABLE "cobros_consumo" (
+  "id" uuid PRIMARY KEY,
+  "empresa_id" uuid NOT NULL,
+  "fecha_inicio_periodo" date NOT NULL,
+  "fecha_fin_periodo" date,
+  "cantidad_optimizaciones" int NOT NULL DEFAULT 0,
+  "conductores_adicionales" int NOT NULL DEFAULT 0,
+  "monto" decimal(12,2) NOT NULL DEFAULT 0,
+  "estado" estado_cobro_consumo NOT NULL DEFAULT 'en_curso',
+  "pago_id" uuid
+);
+
 CREATE UNIQUE INDEX ON "paradas_ruta" ("ruta_id", "secuencia");
 
 CREATE INDEX ON "ubicaciones_ruta" ("ruta_id", "fecha_captura");
@@ -387,13 +419,17 @@ COMMENT ON COLUMN "empresas"."tiene_flota_propia" IS 'HU-01: solo empresas con c
 
 COMMENT ON COLUMN "empresas"."configuracion" IS 'HU-24: configuración general de la empresa';
 
+COMMENT ON COLUMN "empresas"."referencia_tarjeta" IS 'HU-37: referencia (token) de la tarjeta registrada en Wompi. No se guardan datos de la tarjeta (RNF11)';
+
+COMMENT ON COLUMN "empresas"."tope_gasto_mensual" IS 'HU-39: tope opcional de gasto en pago por uso. NULL = sin tope';
+
 COMMENT ON COLUMN "usuarios"."empresa_id" IS 'NULL para el admin del sistema';
 
 COMMENT ON COLUMN "conductores"."estado" IS 'RF05: disponibilidad';
 
-COMMENT ON TABLE "planes" IS 'Todos los planes incluyen reportes avanzados';
+COMMENT ON TABLE "planes" IS 'HU-22. En pago por uso, precio_mensual es la membresía base. Todas las modalidades incluyen reportes avanzados';
 
-COMMENT ON COLUMN "planes"."nombre" IS 'Free Trial | Básico | Pro | Premium';
+COMMENT ON COLUMN "planes"."nombre" IS 'Free Trial | Básico | Pro | Premium | Pago por uso';
 
 COMMENT ON COLUMN "planes"."max_conductores" IS 'Free Trial: 3, Básico: 3, Pro: 10, Premium: NULL (ilimitado)';
 
@@ -409,11 +445,19 @@ COMMENT ON COLUMN "planes"."precio_mensual" IS 'Precio del plan mensual en COP. 
 
 COMMENT ON COLUMN "planes"."precio_anual" IS 'Precio del plan anual en COP, con descuento. Por definir';
 
+COMMENT ON COLUMN "planes"."conductores_incluidos" IS 'Solo pago por uso: conductores incluidos en la membresía. Por definir';
+
+COMMENT ON COLUMN "planes"."precio_optimizacion" IS 'Solo pago por uso: precio por optimización exitosa. Por definir';
+
+COMMENT ON COLUMN "planes"."precio_conductor_adicional" IS 'Solo pago por uso: precio mensual por conductor adicional. Por definir';
+
+COMMENT ON COLUMN "planes"."monto_cobro_anticipado" IS 'Solo pago por uso: monto que dispara el cobro antes del cierre del mes. Por definir';
+
 COMMENT ON TABLE "suscripciones" IS 'Historial de planes por empresa. Solo una activa por empresa: CREATE UNIQUE INDEX ON suscripciones (empresa_id) WHERE estado = ''activa''';
 
 COMMENT ON COLUMN "suscripciones"."estado" IS 'activa: vigente. vencida: Free Trial terminado sin plan pago, plan no renovado o pago rechazado. inactiva: reemplazada por otro plan (historial)';
 
-COMMENT ON COLUMN "suscripciones"."ciclo_facturacion" IS 'Mensual o anual. NULL en Free Trial';
+COMMENT ON COLUMN "suscripciones"."ciclo_facturacion" IS 'Mensual o anual. NULL en Free Trial y en pago por uso (siempre mensual)';
 
 COMMENT ON COLUMN "suscripciones"."pago_id" IS 'Pago que la habilitó. NULL en Free Trial';
 
@@ -441,7 +485,7 @@ COMMENT ON COLUMN "empresas_modulos"."precio" IS 'Precio pagado al adquirirlo';
 
 COMMENT ON COLUMN "empresas_modulos"."fecha_fin" IS 'NULL = vigente';
 
-COMMENT ON TABLE "saldos_creditos" IS 'HU-16 / HU-17: saldo actual. Cada optimización consume primero creditos_plan y luego creditos_extra';
+COMMENT ON TABLE "saldos_creditos" IS 'HU-16 / HU-17: saldo actual, solo en la modalidad de suscripción. Cada optimización consume primero creditos_plan y luego creditos_extra';
 
 COMMENT ON COLUMN "saldos_creditos"."creditos_plan" IS 'Se reinician cada mes al valor del plan, también en planes anuales. CHECK >= 0';
 
@@ -513,7 +557,9 @@ COMMENT ON COLUMN "optimizaciones_ruta"."duracion_estimada_s" IS 'HU-07 / HU-08'
 
 COMMENT ON COLUMN "optimizaciones_ruta"."tiempo_procesamiento_ms" IS 'RNF01: máx. 10 s';
 
-COMMENT ON COLUMN "optimizaciones_ruta"."exitosa" IS 'Una optimización fallida no consume crédito';
+COMMENT ON COLUMN "optimizaciones_ruta"."exitosa" IS 'Una optimización fallida no consume crédito ni se cobra';
+
+COMMENT ON COLUMN "optimizaciones_ruta"."cobro_consumo_id" IS 'Solo pago por uso: cobro en el que se incluye esta optimización';
 
 COMMENT ON TABLE "ubicaciones_ruta" IS 'RF13 / HU-36: recorrido GPS completo de cada ruta en curso (un punto cada 30 s aprox.). La ubicación en vivo cada 5 s va en Redis';
 
@@ -551,21 +597,29 @@ COMMENT ON COLUMN "configuracion_sistema"."clave" IS 'Nombre del parámetro';
 
 COMMENT ON COLUMN "configuracion_sistema"."valor" IS 'Valor del parámetro';
 
-COMMENT ON TABLE "notificaciones" IS 'HU-03, HU-11, HU-16 CA03 y CA07, HU-18, HU-31, HU-33: avisos dentro de la plataforma';
+COMMENT ON TABLE "notificaciones" IS 'HU-03, HU-11, HU-16 CA03 y CA07, HU-18, HU-31, HU-33, HU-37 y HU-39: avisos dentro de la plataforma';
 
 COMMENT ON TABLE "estudiantes" IS 'RF12 / HU-32: requiere el módulo escolar (incluido en Premium, comprado en Pro o de prueba en Free Trial)';
 
 COMMENT ON COLUMN "estudiantes"."direccion_recogida" IS 'RF12: punto de recogida';
 
-COMMENT ON TABLE "pagos" IS 'HU-18, HU-19, HU-33: pagos en línea por pasarela (por definir). La compra se habilita solo con estado = aprobado. No se guardan datos de tarjetas (RNF11)';
+COMMENT ON TABLE "pagos" IS 'HU-18, HU-19, HU-33, HU-37: pagos en línea por Wompi. La compra se habilita solo con estado = aprobado. No se guardan datos de tarjetas (RNF11)';
 
-COMMENT ON COLUMN "pagos"."concepto" IS 'Suscripción, paquete de créditos o módulo';
+COMMENT ON COLUMN "pagos"."concepto" IS 'Suscripción, paquete de créditos, módulo o consumo';
 
 COMMENT ON COLUMN "pagos"."monto" IS 'Monto en COP';
 
 COMMENT ON COLUMN "pagos"."medio_pago" IS 'Ej. tarjeta, pse, nequi. Más adelante: efectivo';
 
 COMMENT ON COLUMN "pagos"."referencia_pasarela" IS 'Referencia de la transacción en la pasarela';
+
+COMMENT ON TABLE "cobros_consumo" IS 'HU-37 / HU-38: consumo acumulado del pago por uso. Se cobra al cierre del mes o al alcanzar el monto de cobro anticipado';
+
+COMMENT ON COLUMN "cobros_consumo"."fecha_fin_periodo" IS 'Cierre del mes o fecha en que se alcanzó el monto de cobro anticipado';
+
+COMMENT ON COLUMN "cobros_consumo"."monto" IS 'Monto acumulado en COP';
+
+COMMENT ON COLUMN "cobros_consumo"."pago_id" IS 'Pago con el que se cobró. NULL mientras está en curso';
 
 ALTER TABLE "sedes" ADD FOREIGN KEY ("empresa_id") REFERENCES "empresas" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
@@ -619,6 +673,8 @@ ALTER TABLE "paradas_ruta" ADD FOREIGN KEY ("estudiante_id") REFERENCES "estudia
 
 ALTER TABLE "optimizaciones_ruta" ADD FOREIGN KEY ("ruta_id") REFERENCES "rutas" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
+ALTER TABLE "optimizaciones_ruta" ADD FOREIGN KEY ("cobro_consumo_id") REFERENCES "cobros_consumo" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
 ALTER TABLE "ubicaciones_ruta" ADD FOREIGN KEY ("ruta_id") REFERENCES "rutas" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "fotos_entrega" ADD FOREIGN KEY ("parada_id") REFERENCES "paradas_ruta" ("id") DEFERRABLE INITIALLY IMMEDIATE;
@@ -640,3 +696,7 @@ ALTER TABLE "notificaciones" ADD FOREIGN KEY ("usuario_id") REFERENCES "usuarios
 ALTER TABLE "estudiantes" ADD FOREIGN KEY ("empresa_id") REFERENCES "empresas" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "pagos" ADD FOREIGN KEY ("empresa_id") REFERENCES "empresas" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "cobros_consumo" ADD FOREIGN KEY ("empresa_id") REFERENCES "empresas" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "cobros_consumo" ADD FOREIGN KEY ("pago_id") REFERENCES "pagos" ("id") DEFERRABLE INITIALLY IMMEDIATE;

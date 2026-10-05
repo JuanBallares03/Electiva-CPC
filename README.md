@@ -44,8 +44,8 @@ FastRouteCO team. In the user stories it appears as "Admin del sistema".
 - Register and manage companies using FastRouteCO.
 - Activate or deactivate companies.
 - Create and manage administrators for each company.
-- Manage subscription plans, credit packages and add-on modules, 
-  including their prices and limits.
+- Manage subscription plans, pay-per-use rates, credit packages and 
+  add-on modules, including their prices and limits.
 - View general information about companies.
 - Monitor the platform and review the history of system failures and alerts.
 - Respond to support requests from companies.
@@ -65,9 +65,12 @@ stories it appears as "Cliente empresa".
 - View the contracted plan, subscription status, and the limits 
   and features included in the plan.
 - View the credit balance and usage history.
-- Contract or change the subscription plan and pay online (monthly or annual).
+- Choose the service modality (subscription plan or pay-per-use), 
+  contract or change it and pay online.
+- In pay-per-use, register a payment card, view consumption and charges, 
+  and set an optional monthly spending limit.
 - Purchase additional credit packages.
-- Purchase add-on modules, such as the school transport module (available as an add-on on the Pro plan).
+- Purchase add-on modules, such as the school transport module (available as an add-on on the Pro plan and in pay-per-use).
 - View logistics reports, indicators and general operation statistics.
 - Request technical support.
 
@@ -128,7 +131,7 @@ assigned by the logistics supervisor.
 > requirements. It is kept only as a historical record: its content 
 > (actors, plans, constraints, tech stack and optimization approach) 
 > has been fully replaced by the current sections of this document, 
-> including "System Roles", "Subscription Plans", "Payments", 
+> including "System Roles", "Service Modalities", "Payments", 
 > "Credit Model", "Tech Stack" and the requirements.
 
 
@@ -183,7 +186,13 @@ Constraints: each requirement verifies a single capability; no online
 payments, push notifications or chat; mark with [ASSUMED] anything 
 the business has not confirmed.
 
-## Subscription Plans
+## Service Modalities
+
+Companies can use FastRouteCO under two service modalities: subscription 
+plans or pay-per-use. Every new company starts on the Free Trial and then 
+chooses one modality. A company has only one active modality at a time.
+
+Prices for both modalities are still to be defined.
 
 ### Free Trial
 - **Duration:** 7 days, available once per company
@@ -193,7 +202,11 @@ the business has not confirmed.
 - **School module:** included for testing
 - **Credit packages:** not available
 
-### Basic
+### Modality 1: Subscription plans
+
+Fixed monthly or annual price, with everything included in a package.
+
+#### Basic
 - **Billing:** monthly or annual
 - **Drivers:** up to 3
 - **Branches:** 1
@@ -201,7 +214,7 @@ the business has not confirmed.
 - **School module:** not available
 - **Credit packages:** available
 
-### Pro
+#### Pro
 - **Billing:** monthly or annual
 - **Drivers:** up to 10
 - **Branches:** up to 5
@@ -209,7 +222,7 @@ the business has not confirmed.
 - **School module:** available as an add-on
 - **Credit packages:** available
 
-### Premium
+#### Premium
 - **Billing:** monthly or annual
 - **Drivers:** unlimited
 - **Branches:** unlimited
@@ -217,29 +230,54 @@ the business has not confirmed.
 - **School module:** included
 - **Credit packages:** available
 
+### Modality 2: Pay-per-use
+
+A base membership plus charges only for what the company uses.
+
+- **Base membership:** monthly fee that includes platform access, all 
+  logistics features and a number of drivers (to be defined)
+- **Route optimizations:** charged per successful optimization; failed 
+  optimizations are not charged
+- **Additional drivers:** monthly fee for each driver above those included
+- **Branches:** to be defined
+- **Support:** email or chat
+- **School module:** available as an add-on
+- **Credit packages:** not applicable; each optimization is charged
+- **Billing:** consumption is accumulated and charged to the registered 
+  card at the end of the month, or earlier when it reaches a defined 
+  amount, whichever comes first
+- **Spending limit:** optional monthly limit set by the company. It is 
+  notified at 80% of the limit; when the limit is reached, new 
+  optimizations are blocked until the limit is raised or the next month 
+  starts. Routes already optimized can still be completed.
+
 ### General rules
 - Every new company starts automatically on the Free Trial and can 
-  switch to a paid plan at any time.
-- When the Free Trial ends without a paid plan, the company keeps its 
-  data but cannot optimize or start routes.
-- When a paid plan is not renewed or its payment is rejected, the 
-  subscription expires: the company keeps its data but cannot optimize 
-  or start routes until it pays.
+  choose a subscription plan or pay-per-use at any time.
+- When the Free Trial ends without a chosen modality, the company keeps 
+  its data but cannot optimize or start routes.
+- When a paid plan is not renewed, or a subscription or pay-per-use 
+  charge is rejected, the company keeps its data but cannot optimize or 
+  start routes until it pays.
 - Paid plans can be billed monthly or annually.
-- All plans include advanced reports.
+- All modalities include advanced reports.
 
 ## Payments
 
-- Payments are made online through a payment gateway (to be defined), 
-  supporting cards, PSE and Nequi.
+- Payments are made online through Wompi, supporting cards, PSE and Nequi.
 - Online payments apply to plan subscriptions (monthly or annual), 
-  credit packages and add-on modules.
+  pay-per-use charges, credit packages and add-on modules.
+- In pay-per-use, the card is stored by the payment gateway 
+  (tokenization); the platform only keeps a reference to it.
 - Purchases are enabled only after the gateway approves the payment.
 - On annual plans, credits are still delivered monthly, at a lower 
   total price than 12 monthly payments.
 - Cash payments may be added later through the gateway's cash options.
 
 ## Credit Model
+
+Applies to the subscription plans and the Free Trial. In pay-per-use, 
+each successful optimization is charged instead of consuming credits.
 
 - Each plan includes a number of credits ("solicitudes"): monthly for 
   paid plans, and a fixed amount for the 7-day Free Trial.
@@ -261,9 +299,11 @@ the business has not confirmed.
 - **Routing engine:** Neo4j with the OpenStreetMap road network, 
   shortest paths calculated with Dijkstra
 - **Map service:** OpenStreetMap
+- **Email service:** Resend
+- **Payment gateway:** Wompi (cards, PSE, Nequi)
 
-**Pending:** payment gateway, email service, photo evidence storage, 
-stop-order optimization algorithm and hosting.
+**Pending:** photo evidence storage, local storage for the mobile app 
+offline mode, stop-order optimization algorithm and hosting.
 
 **Initial city:** Ibagué, Colombia.
 
@@ -275,14 +315,23 @@ stop-order optimization algorithm and hosting.
   during a route. It is not used for platform failures.
 - **Failure or alert (fallo o alerta):** a technical problem of the 
   platform, monitored by the Platform Administrator.
-- **Credit (solicitud):** the unit consumed by each route optimization.
+- **Credit (solicitud):** the unit consumed by each route optimization 
+  in the subscription plans and the Free Trial.
+- **Service modality (modalidad de servicio):** the way a company pays for 
+  FastRouteCO: a subscription plan or pay-per-use.
+- **Pay-per-use (pago por uso):** modality with a base membership plus 
+  charges for each successful optimization and each additional driver.
+- **Spending limit (tope de gasto):** optional monthly maximum that a 
+  pay-per-use company can set to control its charges.
 - **Company status (estado de la empresa):** active or inactive. Decided 
   only by the Platform Administrator. An inactive company's users cannot 
   log in. It is independent of the subscription status.
-- **Subscription status (estado de la suscripción):** active (current and 
-  paid), expired (Free Trial ended without a paid plan, paid plan not 
-  renewed or payment rejected; the company cannot optimize or start routes 
-  until it pays) or inactive (replaced by another plan; kept only as history).
+- **Subscription status (estado de la suscripción):** applies to both 
+  modalities. Active (current and paid), expired (Free Trial ended without 
+  a chosen modality, paid plan not renewed, or a subscription or 
+  pay-per-use charge rejected; the company cannot optimize or start routes 
+  until it pays) or inactive (replaced by another plan or modality; kept 
+  only as history).
 - **Company Administrator (cliente empresa):** the user who manages a 
   company's account. Called "Cliente empresa" in the user stories.
 - **Platform Administrator (admin del sistema):** a member of the 
@@ -311,8 +360,8 @@ stop-order optimization algorithm and hosting.
 | RF15 | Calculate distances and routes with the platform's own routing engine over the OpenStreetMap road network, and use OpenStreetMap to obtain coordinates from addresses and display maps |
 | RF16 | Require drivers to upload at least one photo as evidence when confirming a completed delivery or pickup |
 | RF17 | Enable basic offline mode on the driver's mobile app, synchronizing data automatically when internet connection is restored |
-| RF18 | Manage subscription plans and their limits (drivers, branches, support, credits, and monthly and annual price) |
-| RF19 | Start every new company on a 7-day Free Trial, and restrict route optimization and route start when the Free Trial ends without a paid plan or a paid subscription expires |
+| RF18 | Manage subscription plans and pay-per-use rates, with their limits (drivers, branches, support, credits, and prices) |
+| RF19 | Start every new company on a 7-day Free Trial, and restrict route optimization and route start when the Free Trial ends without a chosen modality, a paid subscription expires or a pay-per-use charge is rejected |
 | RF20 | Manage each company's credit balance: consume one credit per successful optimization, reset plan credits monthly and keep a history of all movements |
 | RF21 | Allow companies to purchase additional credit packages |
 | RF22 | Allow Pro plan companies to purchase add-on modules (school transport module) |
@@ -320,8 +369,11 @@ stop-order optimization algorithm and hosting.
 | RF24 | Allow drivers to start and end their assigned route from the mobile app |
 | RF25 | Allow drivers to report incidents or questions during the route and communicate with the supervisor about them |
 | RF26 | Register and respond to technical support requests from companies, and record a history of platform failures and alerts |
-| RF27 | Notify users of relevant events: support responses, driver messages, low credit balance, Free Trial ending (two days before), upcoming renewals, payment results and completed purchases |
+| RF27 | Notify users of relevant events: support responses, driver messages, low credit balance, Free Trial ending (two days before), upcoming renewals, payment results, completed purchases, pay-per-use charges and spending limit alerts |
 | RF28 | Allow companies to contract or change their plan and pay online through a payment gateway, with monthly or annual billing |
+| RF29 | Allow companies to choose the pay-per-use modality and register a payment card through the payment gateway |
+| RF30 | Accumulate pay-per-use charges for each successful optimization and each additional driver, and bill them at the end of the month or when a defined amount is reached |
+| RF31 | Show pay-per-use consumption and charge history, and allow companies to set an optional monthly spending limit |
 
 ## Non-Functional Requirements
 

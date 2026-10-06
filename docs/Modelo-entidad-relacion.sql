@@ -1,3 +1,7 @@
+-- SQL dump generated using DBML (dbml.dbdiagram.io)
+-- Database: PostgreSQL
+-- Generated at: 2026-10-06T18:01:09.468Z
+
 CREATE TYPE "estado_empresa" AS ENUM (
   'activa',
   'inactiva'
@@ -265,7 +269,7 @@ CREATE TABLE "ordenes" (
 CREATE TABLE "rutas" (
   "id" uuid PRIMARY KEY,
   "empresa_id" uuid NOT NULL,
-  "conductor_id" uuid,
+  "conductor_id" uuid NOT NULL,
   "fecha_ruta" date NOT NULL,
   "estado" estado_ruta NOT NULL DEFAULT 'registrada',
   "latitud_inicio" decimal(9,6),
@@ -326,6 +330,7 @@ CREATE TABLE "incidencias" (
   "estado" estado_incidencia NOT NULL DEFAULT 'abierta',
   "notas_resolucion" text,
   "fecha_reporte" timestamp NOT NULL DEFAULT (now()),
+  "fecha_sincronizacion" timestamp,
   "fecha_resolucion" timestamp
 );
 
@@ -455,7 +460,7 @@ COMMENT ON COLUMN "planes"."monto_cobro_anticipado" IS 'Solo pago por uso: monto
 
 COMMENT ON TABLE "suscripciones" IS 'Historial de planes por empresa. Solo una activa por empresa: CREATE UNIQUE INDEX ON suscripciones (empresa_id) WHERE estado = ''activa''';
 
-COMMENT ON COLUMN "suscripciones"."estado" IS 'activa: vigente. vencida: Free Trial terminado sin plan pago, plan no renovado o pago rechazado. inactiva: reemplazada por otro plan (historial)';
+COMMENT ON COLUMN "suscripciones"."estado" IS 'activa: vigente. vencida: Free Trial terminado sin modalidad elegida, plan no renovado o cobro rechazado (suscripción o pago por uso). inactiva: reemplazada por otro plan o modalidad (historial)';
 
 COMMENT ON COLUMN "suscripciones"."ciclo_facturacion" IS 'Mensual o anual. NULL en Free Trial y en pago por uso (siempre mensual)';
 
@@ -477,7 +482,7 @@ COMMENT ON COLUMN "modulos"."activo" IS 'HU-22 CA04: dejar de ofrecerlo sin afec
 
 COMMENT ON TABLE "planes_modulos" IS 'Módulos incluidos en cada plan. Premium incluye el escolar; Free Trial lo incluye de prueba';
 
-COMMENT ON TABLE "empresas_modulos" IS 'Módulos comprados aparte (solo plan Pro, validado en el sistema). Acceso al módulo = el plan lo incluye O la empresa lo compró';
+COMMENT ON TABLE "empresas_modulos" IS 'Módulos comprados aparte (solo plan Pro y pago por uso, validado en el sistema; RF22, HU-19). Acceso al módulo = el plan lo incluye O la empresa lo compró';
 
 COMMENT ON COLUMN "empresas_modulos"."pago_id" IS 'HU-19: se crea cuando la pasarela aprueba el pago';
 
@@ -525,7 +530,7 @@ COMMENT ON COLUMN "ordenes"."longitud" IS 'RF15';
 
 COMMENT ON COLUMN "ordenes"."prioridad" IS 'RF04';
 
-COMMENT ON COLUMN "rutas"."conductor_id" IS 'RF09';
+COMMENT ON COLUMN "rutas"."conductor_id" IS 'RF01 / HU-06 CA04: la ruta se crea con su conductor. RF09';
 
 COMMENT ON COLUMN "rutas"."latitud_inicio" IS 'RF06: punto de partida del conductor';
 
@@ -577,6 +582,10 @@ COMMENT ON COLUMN "incidencias"."parada_id" IS 'Parada afectada, si aplica';
 
 COMMENT ON COLUMN "incidencias"."clase" IS 'HU-11: incidencia o duda';
 
+COMMENT ON COLUMN "incidencias"."fecha_reporte" IS 'Hora real del reporte en el dispositivo';
+
+COMMENT ON COLUMN "incidencias"."fecha_sincronizacion" IS 'RF17 / HU-36 CA07: hora en que llegó al servidor (modo offline)';
+
 COMMENT ON TABLE "mensajes_incidencia" IS 'HU-11: comunicación conductor-supervisor';
 
 COMMENT ON COLUMN "mensajes_incidencia"."remitente_id" IS 'Conductor o supervisor';
@@ -599,7 +608,7 @@ COMMENT ON COLUMN "configuracion_sistema"."valor" IS 'Valor del parámetro';
 
 COMMENT ON TABLE "notificaciones" IS 'HU-03, HU-11, HU-16 CA03 y CA07, HU-18, HU-31, HU-33, HU-37 y HU-39: avisos dentro de la plataforma';
 
-COMMENT ON TABLE "estudiantes" IS 'RF12 / HU-32: requiere el módulo escolar (incluido en Premium, comprado en Pro o de prueba en Free Trial)';
+COMMENT ON TABLE "estudiantes" IS 'RF12 / HU-32: requiere el módulo escolar (incluido en Premium, comprado en Pro o en pago por uso, o de prueba en Free Trial)';
 
 COMMENT ON COLUMN "estudiantes"."direccion_recogida" IS 'RF12: punto de recogida';
 

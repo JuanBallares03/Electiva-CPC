@@ -346,7 +346,7 @@ offline mode, stop-order optimization algorithm and hosting.
 | RF01 | Create routes by grouping the orders assigned to a driver for a given day |
 | RF02 | Register and manage client companies in the system |
 | RF03 | Register and manage the drivers of each company's fleet |
-| RF04 | Register orders or pickup points with their address and priority (normal or urgent) |
+| RF04 | Register delivery or pickup orders with their type, address, customer data, description, arrival channel and priority (normal or urgent) |
 | RF05 | Suggest the most suitable driver for each order based on availability and location, and let the supervisor confirm or change the assignment |
 | RF06 | Dynamically optimize the multi-stop route for each driver from their starting point |
 | RF07 | Reassign orders or routes in real time when incidents or cancellations occur |
@@ -364,16 +364,16 @@ offline mode, stop-order optimization algorithm and hosting.
 | RF19 | Start every new company on a 7-day Free Trial, and restrict route optimization and route start when the Free Trial ends without a chosen modality, a paid subscription expires or a pay-per-use charge is rejected |
 | RF20 | Manage each company's credit balance: consume one credit per successful optimization, reset plan credits monthly and keep a history of all movements |
 | RF21 | Allow companies to purchase additional credit packages |
-| RF22 | Allow Pro plan companies to purchase add-on modules (school transport module) |
+| RF22 | Allow Pro plan and pay-per-use companies to purchase add-on modules (school transport module) |
 | RF23 | Manage company users (logistics supervisors) and branches, enforcing the branch limit of the active plan |
 | RF24 | Allow drivers to start and end their assigned route from the mobile app |
 | RF25 | Allow drivers to report incidents or questions during the route and communicate with the supervisor about them |
 | RF26 | Register and respond to technical support requests from companies, and record a history of platform failures and alerts |
-| RF27 | Notify users of relevant events: support responses, driver messages, low credit balance, Free Trial ending (two days before), upcoming renewals, payment results, completed purchases, pay-per-use charges and spending limit alerts |
+| RF27 | Notify users of relevant events: company registration confirmation, access details for new Company Administrators, support responses, driver messages, low credit balance, Free Trial ending (two days before), upcoming renewals, payment results, completed purchases, pay-per-use charges and spending limit alerts |
 | RF28 | Allow companies to contract or change their plan and pay online through a payment gateway, with monthly or annual billing |
 | RF29 | Allow companies to choose the pay-per-use modality and register a payment card through the payment gateway |
 | RF30 | Accumulate pay-per-use charges for each successful optimization and each additional driver, and bill them at the end of the month or when a defined amount is reached |
-| RF31 | Show pay-per-use consumption and charge history, and allow companies to set an optional monthly spending limit |
+| RF31 | Show pay-per-use consumption and charge history, indicate whether a subscription plan would have been more convenient for the period's consumption, and allow companies to set an optional monthly spending limit |
 
 ## Non-Functional Requirements
 
